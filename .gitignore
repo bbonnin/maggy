@@ -1,3 +1,6 @@
+db-config-dev.json
+*.sav
+
 # Logs
 logs
 *.log

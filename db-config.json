@@ -1,0 +1,3 @@
+{
+    "uri": "mongodb://<dbuser>:<dbpassword>@<hostname>:<port>/<dbname>"
+}
