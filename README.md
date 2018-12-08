@@ -1,5 +1,4 @@
-# mongo-api-graphql
-GraphQL server with MongoDB as backend
+# GraphQL API server for MongoDB
 
 > Why Maggy ? 
 
