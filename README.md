@@ -29,6 +29,14 @@ npm run dev
 
 * First, create the schema
 ```
+# Get schemas
+curl localhost:8000/_schema
+
+# Add a schema
+curl localhost:8000/_schema -XPOST -d'{ "collectionName": "user", "collectionSchema": { "name": "String", "email": "String" } }' -H 'Content-Type:application/json'
+
+# Delete a schema
+curl localhost:8000/_schema/user -XDELETE
 ```
 
 * Then, make some queries
@@ -42,5 +50,8 @@ curl localhost:8000/user
 
 ## Todo
 
+* Dockerize all
+* UI (to manage the schemas, to test queries)
+* Better async (for context update, loadMetaSchemas)
 * Graphql support
 * Update a schema

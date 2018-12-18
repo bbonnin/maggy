@@ -51,31 +51,37 @@ function getGraphQLType(collectionName) {
     return null
 }
 
-// Technical routes
-//TODO: 
-// - creer une collection _schema pour les metadata des collections
-//   => lire cette collection au demarrage
-//   => contenu: { collection: "name", schema: { ... } }
+// Technical routes for creating/updating/deleting schemas
+// 
 server.route([{
     method: 'GET',
-    path: '/_schema', // Retourne la liste des schemas connus 
+    path: '/_schema', // Returns the list of schemas 
     handler: function (request, h) {
         return MetaSchema.model.find()
     }
 }, {
     method: 'GET',
-    path: '/_type', // Retourne la liste des types GraphQL
+    path: '/_type', // Returns the list of GraphQL types
     handler: function (request, h) {
         return MetaSchema.model.find()
             .then(docs => docs.map(s => getGraphQLType(s.collectionName)))
     }
 }, {
     method: 'POST',
-    path: '/_schema', // Creation du schema de la collection (si pas de schema, pas possible de requeter en graphql)
+    path: '/_schema', // Insert a schema for a collection
     handler: function (request, h) {
         const model = new MetaSchema.model(request.payload)
         loadMetaSchemas()
         return model.save()
+    }
+}, {
+    method: 'DELETE',
+    path: '/_schema/{collection}', // Delete a schema
+    handler: function (request, h) {
+        const collection = request.params.collection
+        const rm = MetaSchema.model.deleteOne({ collectionName: collection })
+        loadMetaSchemas()
+        return rm
     }
 }])
 
@@ -97,7 +103,7 @@ server.route([{
     }
 }, {
     method: 'POST',
-    path: '/{collection}', // Insertion d'un nouveau doc
+    path: '/{collection}', // Insert a new doc
     handler: function (request, h) {
         const collection = request.params.collection
         const model = getModel(collection)
