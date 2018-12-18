@@ -1,31 +1,54 @@
 const hapi = require('hapi')
 const mongoose = require('mongoose')
-const MetaSchema = require('./schema')
+const MetaSchema = require('./metaschema')
 const dbConfig = require('./db-config-' + process.env.NODE_ENV + '.json')
+const createType = require('mongoose-schema-to-graphql')
+const _ = require('lodash')
+
+
 
 const server = hapi.server({
     port: 8000,
     host: 'localhost'
 })
 
-let schemas = []
+ 
+let metaschemas = []
 
-async function loadSchemas() {
-    schemas = await MetaSchema.find()
+
+async function loadMetaSchemas() {
+    schemas = await MetaSchema.model.find()
 }
 
 function getModel(collectionName) {
-    let collectionSchema = null
+    const schema = schemas.find(s => s.collectionName === collectionName)
+    let model = null
+    
+    if (schema) {
+        model = 
+            mongoose.models[collectionName] ? 
+            mongoose.models[collectionName] : 
+            mongoose.model(collectionName, new mongoose.Schema(schema.collectionSchema))
+    }
 
-    schemas.forEach(s => {
-        if (s.collectionName === collectionName) {
-            collectionSchema = s.collectionSchema
+    return model
+}
+
+function getGraphQLType(collectionName) {
+    const schema = schemas.find(s => s.collectionName === collectionName)
+
+    if (schema) {
+        const config = {
+            name: collectionName,
+            class: 'GraphQLObjectType',
+            schema: new mongoose.Schema(schema.collectionSchema),
+            exclude: ['_id']
         }
-    })
 
-    //TODO: error
+        return createType(config)
+    }
 
-    return mongoose.model(collectionName, new mongoose.Schema(collectionSchema))
+    return null
 }
 
 // Technical routes
@@ -37,38 +60,55 @@ server.route([{
     method: 'GET',
     path: '/_schema', // Retourne la liste des schemas connus 
     handler: function (request, h) {
-        return MetaSchema.find()
+        return MetaSchema.model.find()
+    }
+}, {
+    method: 'GET',
+    path: '/_type', // Retourne la liste des types GraphQL
+    handler: function (request, h) {
+        return MetaSchema.model.find()
+            .then(docs => docs.map(s => getGraphQLType(s.collectionName)))
     }
 }, {
     method: 'POST',
     path: '/_schema', // Creation du schema de la collection (si pas de schema, pas possible de requeter en graphql)
     handler: function (request, h) {
-        const schema = new MetaSchema(request.payload)
-        loadSchemas()
-        return schema.save()
+        const model = new MetaSchema.model(request.payload)
+        loadMetaSchemas()
+        return model.save()
     }
 }])
 
 // Functional routes
-// - si requetage graphql sans schema, alors erreur "you must provide a schema"
+// - si requetage graphql d'une collection sans schema, alors erreur "you must provide a schema"
 server.route([{
     method: 'GET',
-    path: '/{collection}', 
+    path: '/{collection}', // Retourne le contenu de la collection
     handler: function (request, h) {
-        const collection = request.params.collection
-        const model = getModel(collection)
-        return model.find()
+        try {
+            const collection = request.params.collection
+            const model = getModel(collection)
+            return model.find()
+        }
+        catch (e) {
+            console.log(e)
+            return h.response({ "error": "Unknown schema for " + collection }).code(400)
+        }
     }
 }, {
     method: 'POST',
     path: '/{collection}', // Insertion d'un nouveau doc
     handler: function (request, h) {
         const collection = request.params.collection
-        console.log(collection)
         const model = getModel(collection)
-        const doc = new model(request.payload)
-        console.log(doc)
-        return doc.save()
+
+        if (model) {
+            const doc = new model(request.payload)
+            return doc.save()
+        }
+        else {
+            return h.response({ "error": "Unknown schema for " + collection }).code(400)
+        }
     }
 }])    
 
@@ -77,6 +117,7 @@ mongoose.connect(dbConfig.uri)
 
 mongoose.connection.once('open', () => {
     console.log('Connected to database');
+    loadMetaSchemas()
 })
 
 const init = async () => {

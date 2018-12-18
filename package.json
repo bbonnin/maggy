@@ -27,7 +27,9 @@
     "apollo-server-hapi": "^2.2.6",
     "graphql": "^14.0.2",
     "hapi": "^17.8.1",
-    "mongoose": "^5.3.15"
+    "lodash": "^4.17.11",
+    "mongoose": "^5.3.15",
+    "mongoose-schema-to-graphql": "^2.8.0"
   },
   "devDependencies": {
     "cross-env": "^5.2.0",
