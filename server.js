@@ -1,18 +1,34 @@
 const hapi = require('hapi')
+const { ApolloServer, gql } = require('apollo-server-hapi');
+const graphql = require('graphql')
 const mongoose = require('mongoose')
 const MetaSchema = require('./metaschema')
 const dbConfig = require('./db-config-' + process.env.NODE_ENV + '.json')
 const createType = require('mongoose-schema-to-graphql')
+const { schemaComposer } = require('graphql-compose')
+const { convertSchemaToGraphQL } = require('graphql-compose-mongoose')
 const _ = require('lodash')
 
-
+const { GraphQLObjectType, GraphQLSchema } = graphql
 
 const server = hapi.server({
     port: 8000,
     host: 'localhost'
 })
 
- 
+const typeDefs = gql`
+    type Query {
+        hello: String
+    }`
+
+const resolvers = {
+    Query: {
+        hello: () => 'Maggy'
+}}
+
+const apollo = new ApolloServer({ typeDefs, resolvers })
+
+
 let metaschemas = []
 
 
@@ -70,6 +86,7 @@ server.route([{
     method: 'POST',
     path: '/_schema', // Insert a schema for a collection
     handler: function (request, h) {
+        console.log('schema=', apollo)
         const model = new MetaSchema.model(request.payload)
         loadMetaSchemas()
         return model.save()
@@ -89,7 +106,7 @@ server.route([{
 // - si requetage graphql d'une collection sans schema, alors erreur "you must provide a schema"
 server.route([{
     method: 'GET',
-    path: '/{collection}', // Retourne le contenu de la collection
+    path: '/_{collection}', // Retourne le contenu de la collection
     handler: function (request, h) {
         try {
             const collection = request.params.collection
@@ -103,7 +120,7 @@ server.route([{
     }
 }, {
     method: 'POST',
-    path: '/{collection}', // Insert a new doc
+    path: '/_{collection}', // Insert a new doc
     handler: function (request, h) {
         const collection = request.params.collection
         const model = getModel(collection)
@@ -126,8 +143,14 @@ mongoose.connection.once('open', () => {
     loadMetaSchemas()
 })
 
-const init = async () => {
+async function startServer() {
+
+    await apollo.applyMiddleware({ app: server })
+
+    await apollo.installSubscriptionHandlers(server.listener)
+
     await server.start()
+
     console.log(`Server running at: ${server.info.uri}`)
 }
 
@@ -136,4 +159,4 @@ process.on('unhandledRejection', (err) => {
     process.exit(1)
 })
 
-init()
+startServer()

@@ -1,5 +1,6 @@
 db-config-dev.json
 *.sav
+tmp/
 
 # Logs
 logs
